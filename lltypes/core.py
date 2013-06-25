@@ -80,6 +80,12 @@ class Enum(Type):
         self.idx = UNInt8(name)
         self.opts = opts
 
+    def to_llvm(self):
+        return lc.Type.int(8)
+
+    def to_dtype(self):
+        raise NoDtypeMapping(self)
+
     def to_ctypes(self):
         return type(self.name, (enum.CtypesEnum,), self.opts)
 
@@ -89,6 +95,15 @@ class Union(Type):
         self.name = name
         self.tag = tag
         self.options = options
+
+    def to_ctypes(self):
+        class struct(ctypes.Union):
+            _fields_ = [
+                (field.name, field.to_ctypes())
+                for field in self.fields
+            ]
+        struct.__name__ = self.name
+        return struct
 
 class Vector(Type):
 
