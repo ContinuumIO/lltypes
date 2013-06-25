@@ -67,7 +67,7 @@ class Field(Type):
         self.format = format
 
     def to_dtype(self):
-        return numpy.dtype(self.endianess + self.format)
+        return numpy.dtype(self.endianness + self.format)
 
     def to_llvm(self):
         #if self.format.isupper():
@@ -145,11 +145,11 @@ class Pointer(Type):
     def to_dtype(self):
         raise NoDtypeMapping(self)
 
-    def to_llvm(self):
-        return lc.Type.pointer(self.ty.to_llvm())
-
     def to_ctypes(self):
         return ctypes.POINTER(self.ty.to_ctypes())
+
+    def to_llvm(self):
+        return lc.Type.pointer(self.ty.to_llvm())
 
 #------------------------------------------------------------------------
 # Big Endian
@@ -256,12 +256,18 @@ class Sequence(Type):
     """
 
     def __init__(self, ty, length):
+        if not isinstance(length, numbers.Integral):
+            raise ValueError('Must be integral length')
+
         self.ty = ty
         self.length = length
 
     @property
     def name(self):
         return self.ty.name
+
+    def to_dtype(self):
+        return numpy.dtype((self.ty.to_dtype(), self.length))
 
     def to_llvm(self):
         return lc.Type.array(self.ty.to_llvm(), self.length)
@@ -308,11 +314,11 @@ class TerminatedString(Type):
     def to_dtype(self):
         return numpy.str_
 
-def FixedString(length):
-    return Sequence(Char, length)
+def FixedString(name, length):
+    return Sequence(Char(name), length)
 
-def CString():
-    return TerminatedString('0x00')
+def CString(name):
+    return TerminatedString(name, '0x00')
 
 #------------------------------------------------------------------------
 # LLArrays
@@ -350,10 +356,14 @@ if __name__ == '__main__':
     print f.to_llvm()
     print s.to_llvm()
 
-    e =  Enum('bar',
+    print Enum('bar',
         X = 1,
         Y = 2,
         Z = 3
     ).to_ctypes()
 
-    print e
+    print Enum('bar',
+        X = 1,
+        Y = 2,
+        Z = 3
+    ).to_llvm()
