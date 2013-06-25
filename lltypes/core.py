@@ -2,13 +2,15 @@ import llvm
 import numpy
 import ctypes
 
+import codes
+
 #------------------------------------------------------------------------
 # Exceptions
 #------------------------------------------------------------------------
 
 class NoLlvmMapping(Exception):
     pass
-class NoCtype(Exception):
+class NoCtypeMapping(Exception):
     pass
 class NoDtypeMapping(Exception):
     pass
@@ -20,13 +22,13 @@ class NoDtypeMapping(Exception):
 class Type(object):
 
     def to_llvm(self):
-        raise NotImplementedError
+        raise NoLlvmMapping(self)
 
     def to_ctypes(self):
-        raise NotImplementedError
+        raise NoCtypeMapping(self)
 
     def to_dtype(self):
-        raise NotImplementedError
+        raise NoDtypeMapping(self)
 
     def __repr__(self):
         return "%s(%r)" % (self.__class__.__name__, self.name)
@@ -35,6 +37,15 @@ class Struct(Type):
     def __init__(self, name, *fields):
         self.name = name
         self.fields = fields
+
+    def to_ctypes(self):
+        class struct(ctypes.Structure):
+            _fields_ = [
+                (field.name, field.to_ctypes())
+                for field in self.fields
+            ]
+        struct.__name__ = self.name
+        return struct
 
 class Field(Type):
     def __init__(self, name, endianness, format):
@@ -45,8 +56,8 @@ class Field(Type):
     def to_dtype(self):
         return numpy.dtype(self.endianess + self.format)
 
-    def to_ctype(self):
-        raise NotImplementedError
+    def to_ctypes(self):
+        return codes.format_ctypes[self.format]
 
 class Enum(Type):
     def __init__(self, name, **kw):
@@ -69,6 +80,13 @@ class Pointer(Type):
 
     def __init__(self, ty):
         self.ty = ty
+
+    @property
+    def name(self):
+        return self.ty.name
+
+    def to_ctypes(self):
+        return ctypes.POINTER(self.ty.to_ctypes())
 
 #------------------------------------------------------------------------
 # Big Endian
@@ -161,8 +179,10 @@ def NFloat64(name):
 def Bool(name):
     return Field(name, "=", "?")
 
-Byte = UBInt8
-Char = SLInt8
+Byte  = UBInt8
+SChar = SLInt8
+UChar = ULInt8
+Char  = SChar
 
 #------------------------------------------------------------------------
 # Strings
@@ -176,6 +196,9 @@ class Sequence(Type):
         self.name = name
         self.ty = ty
         self.length = length
+
+    def to_ctypes(self):
+        return self.ty.to_ctypes() * self.length
 
 class VariableString(Type):
 
@@ -207,5 +230,24 @@ def Array_C(name, ty, nd):
         Sequence('shape', UNInt8(''), nd),
     )
 
+def Array_F(name, ty, nd):
+    return Struct('Array_F',
+        Pointer(ty('data')),
+        Sequence('shape', UNInt8(''), nd),
+    )
+
+def Array_S(name, ty, nd):
+    return Struct('Array_S',
+        Pointer(ty('data')),
+        Sequence('shape', UNInt8(''), nd),
+        Sequence('stride', UNInt8(''), nd),
+    )
+
 if __name__ == '__main__':
-    Array_C('foo', SNInt8, 3)
+    c = Array_C('foo', SNInt8, 3)
+    f = Array_F('foo', SNInt8, 3)
+    s = Array_S('foo', SNInt8, 3)
+
+    print c.to_ctypes()
+    print f.to_ctypes()
+    print s.to_ctypes()
