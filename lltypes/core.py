@@ -1,8 +1,10 @@
-import llvm
 import numpy
 import ctypes
+import llvm.core as lc
+import numbers
 
 import codes
+import enum
 
 #------------------------------------------------------------------------
 # Exceptions
@@ -38,6 +40,16 @@ class Struct(Type):
         self.name = name
         self.fields = fields
 
+    def to_llvm(self):
+        fields = [
+            field.to_llvm()
+            for field in self.fields
+        ]
+        return lc.Type.struct(
+            fields,
+            self.name
+        )
+
     def to_ctypes(self):
         class struct(ctypes.Structure):
             _fields_ = [
@@ -59,10 +71,17 @@ class Field(Type):
     def to_ctypes(self):
         return codes.format_ctypes[self.format]
 
+    def to_llvm(self):
+        return codes.format_llvm[self.format]
+
 class Enum(Type):
-    def __init__(self, name, **kw):
+    def __init__(self, name, **opts):
         self.name = name
-        self.idx = Byte(name)
+        self.idx = UNInt8(name)
+        self.opts = opts
+
+    def to_ctypes(self):
+        return type(self.name, (enum.CtypesEnum,), self.opts)
 
 class Union(Type):
 
@@ -73,8 +92,19 @@ class Union(Type):
 
 class Vector(Type):
 
-    def __init__(self, width, options):
-        self.options = options
+    def __init__(self, width, ty):
+        if not isinstance(width, numbers.Integral):
+            raise ValueError('Must be integral width')
+        assert width in [2, 4, 8]
+
+        self.width = width
+        self.ty = ty
+
+    def to_ctypes(self):
+        raise NoCtypeMapping()
+
+    def to_llvm(self):
+        return lc.Type.vector(self.ty.to_llvm(), self.width)
 
 class Pointer(Type):
 
@@ -84,6 +114,9 @@ class Pointer(Type):
     @property
     def name(self):
         return self.ty.name
+
+    def to_llvm(self):
+        return lc.Type.pointer(self.ty.to_llvm())
 
     def to_ctypes(self):
         return ctypes.POINTER(self.ty.to_ctypes())
@@ -197,6 +230,9 @@ class Sequence(Type):
         self.ty = ty
         self.length = length
 
+    def to_llvm(self):
+        return lc.Type.array(self.ty.to_llvm(), self.length)
+
     def to_ctypes(self):
         return self.ty.to_ctypes() * self.length
 
@@ -212,6 +248,9 @@ class TerminatedString(Type):
     def __init__(self, name, terminator):
         self.name = name
         self.terminator = terminator
+
+    def to_ctypes(self):
+        return ctypes.c_char_p
 
 def FixedString(length):
     return Sequence(Char, length)
@@ -251,3 +290,15 @@ if __name__ == '__main__':
     print c.to_ctypes()
     print f.to_ctypes()
     print s.to_ctypes()
+
+    print c.to_llvm()
+    print f.to_llvm()
+    print s.to_llvm()
+
+    e =  Enum('bar',
+        X = 1,
+        Y = 2,
+        Z = 3
+    ).to_ctypes()
+
+    print e
