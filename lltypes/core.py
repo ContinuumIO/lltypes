@@ -41,6 +41,13 @@ class Struct(Type):
         self.name = name
         self.fields = fields
 
+    def to_dtype(self):
+        fields = [
+            (field.name, field.to_dtype())
+            for field in self.fields
+        ]
+        return numpy.dtype(fields)
+
     def to_llvm(self):
         fields = [
             field.to_llvm()
@@ -103,7 +110,14 @@ class Union(Type):
         raise NoDtypeMapping(self)
 
     def to_llvm(self):
-        raise NoLlvmMapping(self)
+        fields = [
+            field.to_llvm()
+            for field in self.fields
+        ]
+        return lc.Type.struct(
+            fields,
+            self.name
+        )
 
     def to_ctypes(self):
         class struct(ctypes.Union):
@@ -143,7 +157,11 @@ class Pointer(Type):
         return self.ty.name
 
     def to_dtype(self):
-        raise NoDtypeMapping(self)
+        if self.ty.format in ['s', 'c', 'B', 'b']:
+            return self.ty.to_dtype()
+        else:
+            import pdb; pdb.set_trace()
+            raise NoDtypeMapping()
 
     def to_ctypes(self):
         return ctypes.POINTER(self.ty.to_ctypes())
@@ -277,10 +295,8 @@ class Sequence(Type):
 
 class VariableString(Type):
 
-    def __init__(self, name, ptr, length):
+    def __init__(self, name):
         self.name = name
-        self.ptr = ptr
-        self.length = length
 
     def to_dtype(self):
         raise NoDtypeMapping(self)
@@ -352,6 +368,10 @@ if __name__ == '__main__':
     print f.to_ctypes()
     print s.to_ctypes()
 
+    print c.to_dtype()
+    print f.to_dtype()
+    print s.to_dtype()
+
     print c.to_llvm()
     print f.to_llvm()
     print s.to_llvm()
@@ -367,3 +387,10 @@ if __name__ == '__main__':
         Y = 2,
         Z = 3
     ).to_llvm()
+
+    print FixedString('foo', 35).to_llvm()
+    print FixedString('foo', 35).to_ctypes()
+    print FixedString('foo', 35).to_dtype()
+
+    print VariableString('foo').to_llvm()
+    print VariableString('foo').to_ctypes()
