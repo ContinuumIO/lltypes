@@ -29,7 +29,7 @@ format_llvm = {
     #'h'	: ctypes.c_short,
     #'H'	: ctypes.c_ushort,
     'i'	: lc.Type.int(8),
-    #'I'	: ctypes.c_uint,
+    'I'	: lc.Type.int(8),
     #'l'	: ctypes.c_long,
     #'L'	: ctypes.c_ulong,
     #'Q'	: ctypes.c_longlong,

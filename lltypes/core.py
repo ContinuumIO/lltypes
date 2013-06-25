@@ -2,6 +2,7 @@ import numpy
 import ctypes
 import llvm.core as lc
 import numbers
+import warnings
 
 import codes
 import enum
@@ -23,14 +24,14 @@ class NoDtypeMapping(Exception):
 
 class Type(object):
 
+    def to_dtype(self):
+        raise NoDtypeMapping(self)
+
     def to_llvm(self):
         raise NoLlvmMapping(self)
 
     def to_ctypes(self):
         raise NoCtypeMapping(self)
-
-    def to_dtype(self):
-        raise NoDtypeMapping(self)
 
     def __repr__(self):
         return "%s(%r)" % (self.__class__.__name__, self.name)
@@ -68,11 +69,13 @@ class Field(Type):
     def to_dtype(self):
         return numpy.dtype(self.endianess + self.format)
 
+    def to_llvm(self):
+        #if self.format.isupper():
+            #warnings.warn("Conversion to LLVM may not preserve precision")
+        return codes.format_llvm[self.format]
+
     def to_ctypes(self):
         return codes.format_ctypes[self.format]
-
-    def to_llvm(self):
-        return codes.format_llvm[self.format]
 
 class Enum(Type):
     def __init__(self, name, **opts):
@@ -80,11 +83,11 @@ class Enum(Type):
         self.idx = UNInt8(name)
         self.opts = opts
 
-    def to_llvm(self):
-        return lc.Type.int(8)
-
     def to_dtype(self):
         raise NoDtypeMapping(self)
+
+    def to_llvm(self):
+        return lc.Type.int(8)
 
     def to_ctypes(self):
         return type(self.name, (enum.CtypesEnum,), self.opts)
@@ -95,6 +98,12 @@ class Union(Type):
         self.name = name
         self.tag = tag
         self.options = options
+
+    def to_dtype(self):
+        raise NoDtypeMapping(self)
+
+    def to_llvm(self):
+        raise NoLlvmMapping(self)
 
     def to_ctypes(self):
         class struct(ctypes.Union):
@@ -115,6 +124,9 @@ class Vector(Type):
         self.width = width
         self.ty = ty
 
+    def to_dtype(self):
+        raise NoDtypeMapping(self)
+
     def to_ctypes(self):
         raise NoCtypeMapping()
 
@@ -129,6 +141,9 @@ class Pointer(Type):
     @property
     def name(self):
         return self.ty.name
+
+    def to_dtype(self):
+        raise NoDtypeMapping(self)
 
     def to_llvm(self):
         return lc.Type.pointer(self.ty.to_llvm())
@@ -240,10 +255,13 @@ class Sequence(Type):
     """ Fixed sequence of type ``ty`` with integral ``length``
     """
 
-    def __init__(self, name, ty, length):
-        self.name = name
+    def __init__(self, ty, length):
         self.ty = ty
         self.length = length
+
+    @property
+    def name(self):
+        return self.ty.name
 
     def to_llvm(self):
         return lc.Type.array(self.ty.to_llvm(), self.length)
@@ -258,6 +276,23 @@ class VariableString(Type):
         self.ptr = ptr
         self.length = length
 
+    def to_dtype(self):
+        raise NoDtypeMapping(self)
+
+    def to_llvm(self):
+        return lc.Type.struct([
+            lc.Type.int(8),
+            lc.Type.int(8),
+        ], name='vstring')
+
+    def to_ctypes(self):
+        class vstring(ctypes.Structure):
+            _fields_ = [
+                ('ptr', ctypes.c_void_p),
+                ('offset', ctypes.c_int),
+            ]
+        return vstring
+
 class TerminatedString(Type):
 
     def __init__(self, name, terminator):
@@ -266,6 +301,12 @@ class TerminatedString(Type):
 
     def to_ctypes(self):
         return ctypes.c_char_p
+
+    def to_llvm(self):
+        return lc.Type.pointer(lc.Type.int(8))
+
+    def to_dtype(self):
+        return numpy.str_
 
 def FixedString(length):
     return Sequence(Char, length)
@@ -277,30 +318,29 @@ def CString():
 # LLArrays
 #------------------------------------------------------------------------
 
-
 def Array_C(name, ty, nd):
     return Struct('Array_C',
         Pointer(ty('data')),
-        Sequence('shape', UNInt8(''), nd),
+        Sequence(UNInt8('shape'), nd),
     )
 
 def Array_F(name, ty, nd):
     return Struct('Array_F',
         Pointer(ty('data')),
-        Sequence('shape', UNInt8(''), nd),
+        Sequence(UNInt8('shape'), nd),
     )
 
 def Array_S(name, ty, nd):
     return Struct('Array_S',
         Pointer(ty('data')),
-        Sequence('shape', UNInt8(''), nd),
-        Sequence('stride', UNInt8(''), nd),
+        Sequence(UNInt8('shape'), nd),
+        Sequence(UNInt8('stride'), nd),
     )
 
 if __name__ == '__main__':
-    c = Array_C('foo', SNInt8, 3)
-    f = Array_F('foo', SNInt8, 3)
-    s = Array_S('foo', SNInt8, 3)
+    c = Array_C('foo', UNInt8, 3)
+    f = Array_F('foo', UNInt8, 3)
+    s = Array_S('foo', UNInt8, 3)
 
     print c.to_ctypes()
     print f.to_ctypes()
