@@ -59,3 +59,6 @@ from core import (
     , Float32
     , Float64
 )
+
+from .tests.test_features import run
+test = run
