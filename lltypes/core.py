@@ -4,8 +4,8 @@ import llvm.core as lc
 import numbers
 import warnings
 
-import codes
-import enum
+from . import codes
+from . import enum
 
 ptrsize = ctypes.sizeof(ctypes.c_void_p)
 

@@ -138,9 +138,9 @@ def Array_S(name, ty, nd):
 >>> s = Array_S('foo', UNInt8, 3)
 
 >>> print c.to_llvm()
-# %Array_C = type { i8*, [3 x i8] }
+%Array_C = type { i8*, [3 x i8] }
 >>> print f.to_llvm()
-# %Array_F = type { i8*, [3 x i8] }
+%Array_F = type { i8*, [3 x i8] }
 >>> print s.to_llvm()
-# %Array_S = type { i8*, [3 x i8], [3 x i8] }
+%Array_S = type { i8*, [3 x i8], [3 x i8] }
 ```

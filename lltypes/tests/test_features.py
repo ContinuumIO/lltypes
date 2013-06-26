@@ -34,36 +34,36 @@ class TestToplevel(unittest.TestCase):
         f = Array_F('foo', UNInt8, 3)
         s = Array_S('foo', UNInt8, 3)
 
-        print c.to_ctypes()
-        print f.to_ctypes()
-        print s.to_ctypes()
+        print(c.to_ctypes())
+        print(f.to_ctypes())
+        print(s.to_ctypes())
 
-        print c.to_dtype()
-        print f.to_dtype()
-        print s.to_dtype()
+        print(c.to_dtype())
+        print(f.to_dtype())
+        print(s.to_dtype())
 
-        print c.to_llvm()
-        print f.to_llvm()
-        print s.to_llvm()
+        print(c.to_llvm())
+        print(f.to_llvm())
+        print(s.to_llvm())
 
-        print Enum('bar',
+        print(Enum('bar',
             X = 1,
             Y = 2,
             Z = 3
-        ).to_ctypes()
+        ).to_ctypes())
 
-        print Enum('bar',
+        print(Enum('bar',
             X = 1,
             Y = 2,
             Z = 3
-        ).to_llvm()
+        ).to_llvm())
 
-        print FixedString('foo', 35).to_llvm()
-        print FixedString('foo', 35).to_ctypes()
-        print FixedString('foo', 35).to_dtype()
+        print(FixedString('foo', 35).to_llvm())
+        print(FixedString('foo', 35).to_ctypes())
+        print(FixedString('foo', 35).to_dtype())
 
-        print VariableString('foo').to_llvm()
-        print VariableString('foo').to_ctypes()
+        print(VariableString('foo').to_llvm())
+        print(VariableString('foo').to_ctypes())
 
 
 tests.append(TestToplevel)
