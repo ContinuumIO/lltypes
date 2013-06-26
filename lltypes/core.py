@@ -7,6 +7,8 @@ import warnings
 import codes
 import enum
 
+ptrsize = ctypes.sizeof(ctypes.c_void_p)
+
 #------------------------------------------------------------------------
 # Exceptions
 #------------------------------------------------------------------------
@@ -160,7 +162,6 @@ class Pointer(Type):
         if self.ty.format in ['s', 'c', 'B', 'b']:
             return self.ty.to_dtype()
         else:
-            import pdb; pdb.set_trace()
             raise NoDtypeMapping()
 
     def to_ctypes(self):
@@ -253,17 +254,25 @@ def LFloat64(name):
 def NFloat64(name):
     return Field(name, "=", "d")
 
-#------------------------------------------------------------------------
-# Boolean
-#------------------------------------------------------------------------
-
 def Bool(name):
     return Field(name, "=", "?")
+
+#------------------------------------------------------------------------
+# Defaults
+#------------------------------------------------------------------------
 
 Byte  = UBInt8
 SChar = SLInt8
 UChar = ULInt8
 Char  = SChar
+
+Int8  = SNInt8
+Int16 = SNInt16
+Int32 = SNInt32
+Int64 = SNInt64
+
+Float32  = NFloat32
+Float64  = NFloat64
 
 #------------------------------------------------------------------------
 # Strings
@@ -359,38 +368,5 @@ def Array_S(name, ty, nd):
         Sequence(UNInt8('stride'), nd),
     )
 
-if __name__ == '__main__':
-    c = Array_C('foo', UNInt8, 3)
-    f = Array_F('foo', UNInt8, 3)
-    s = Array_S('foo', UNInt8, 3)
-
-    print c.to_ctypes()
-    print f.to_ctypes()
-    print s.to_ctypes()
-
-    print c.to_dtype()
-    print f.to_dtype()
-    print s.to_dtype()
-
-    print c.to_llvm()
-    print f.to_llvm()
-    print s.to_llvm()
-
-    print Enum('bar',
-        X = 1,
-        Y = 2,
-        Z = 3
-    ).to_ctypes()
-
-    print Enum('bar',
-        X = 1,
-        Y = 2,
-        Z = 3
-    ).to_llvm()
-
-    print FixedString('foo', 35).to_llvm()
-    print FixedString('foo', 35).to_ctypes()
-    print FixedString('foo', 35).to_dtype()
-
-    print VariableString('foo').to_llvm()
-    print VariableString('foo').to_ctypes()
+def Array_A(name, ty, nd):
+    raise NotImplementedError
