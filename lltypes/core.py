@@ -271,6 +271,11 @@ Int16 = SNInt16
 Int32 = SNInt32
 Int64 = SNInt64
 
+UInt8  = UNInt8
+UInt16 = UNInt16
+UInt32 = UNInt32
+UInt64 = UNInt64
+
 Float32  = NFloat32
 Float64  = NFloat64
 
