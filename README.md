@@ -3,25 +3,144 @@ lltypes
 
 A type system for Python backed by llvm and ctypes
 
-This project is a low-level type system with a focus on plain-old-data (POD).  In other words, it provides 
-Python objects that represent a "low-level type" (and a way for users of the library to create new ones easily 
---- preferrably via class syntax) that have at least the following methods: 
+This project is a wrapping for spelling and translating between
+ctypes, LLVM types and Numpy dtype.
 
- * to_llvm  --- return a binary compatible llvm type (via llvmpy)
- * to_ctypes --- return a binary compatible ctypes object
- * to_dtype --- return a NumPy dtype object (or at least a python object, obj, 
-                  that could be used with numpy.dtype(obj) to 
-                  create the dtype to avoid a hard-dependency on NumPy).  
- 
-The llvm_array object should live in this project instead of llvmpy. 
+Example: Structs
+----------------
 
-This project can serve as a common type-system that bridges llvm types and ctypes and allows
-other projects to wrap it to build their own type-system as needed.
+In C99 we might define the following structure:
 
-This project will be successful if numba, and blaze-datashape (dynd-python) use it.
-It will be wildly successful if llpython, parakeet, NumPy, and other projects use it. 
+```c
+struct {
+   bool a;
+   int b;
+   float c;
+} mystruct;
+```
 
-Out of scope for this project are (at least):
+We can map this structure in Python:
 
-   * promotion rules
-   * multiple dispatch notions 
+```python
+from lltypes import *
+mystruct = Struct(
+    'mystruct',
+    Bool('a'),
+    Int32('b'),
+    Float32('c'),
+)
+```
+
+Which can be converted to ctypes using ``to_ctypes``:
+
+```python
+mycstruct = mystruct.to_ctypes()
+
+inst = mycstruct(
+    True,
+    3,
+    3.14
+)
+
+>>> inst.a
+True
+>>> inst.b
+3
+>>> inst.c
+3.140000104904175
+```
+
+And to LLVM using ``to_llvm``:
+
+```python
+llstruct = mystruct.to_llvm()
+
+>>> print llstruct
+%mystruct = type { i1, i32, float }
+```
+
+And to dtype using ``to_dtype``:
+
+```python
+dtstruct = mystruct.to_dtype()
+
+>>> print dtstruct
+dtype([('a', '?'), ('b', 'i32'), ('c', '<f4')])
+```
+
+Example: Arrays
+----------------
+
+Blaze defines a family of parameterized types for its array
+objects. These are first class polytypes in lltypes with the
+follinwg schema:
+
+```ocaml
+nd := 1 | 2 | 3 | 4 | 5
+
+mono := Byte | Int8 | Int32 | ...
+
+poly := Array_C <mono> <nd>
+      | Array_F <mono> <nd>
+      | Array_S <mono> <nd>
+```
+
+In C these are structures of array kinds parameterized by ``eltype``
+and ``nd``.
+
+
+```c
+// Contiguous or Fortran
+struct {
+   eltype *data;
+   intp shape[nd];
+} Array_C;
+
+struct {
+   eltype *data;
+   diminfo shape[nd];
+} Array_F;
+
+struct {
+   eltype *data;
+   intp shape[nd];
+   intp stride[nd];
+} Array_S;
+```
+
+In lltypes these are expanded out into lower types by a simple
+function.
+
+```python
+def Array_C(name, ty, nd):
+    return Struct('Array_C',
+        Pointer(ty('data')),
+        Sequence(UNInt8('shape'), nd),
+    )
+
+def Array_F(name, ty, nd):
+    return Struct('Array_F',
+        Pointer(ty('data')),
+        Sequence(UNInt8('shape'), nd),
+    )
+
+def Array_S(name, ty, nd):
+    return Struct('Array_S',
+        Pointer(ty('data')),
+        Sequence(UNInt8('shape'), nd),
+        Sequence(UNInt8('stride'), nd),
+    )
+```
+
+```python
+>>> c = Array_C('foo', UNInt8, 3)
+>>> f = Array_F('foo', UNInt8, 3)
+>>> s = Array_S('foo', UNInt8, 3)
+
+>>> print c.to_llvm()
+# %Array_C = type { i8*, [3 x i8] }
+>>> print f.to_llvm()
+# %Array_F = type { i8*, [3 x i8] }
+>>> print s.to_llvm()
+# %Array_S = type { i8*, [3 x i8], [3 x i8] }
+```
