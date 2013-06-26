@@ -73,7 +73,7 @@ Example: Arrays
 
 Blaze defines a family of parameterized types for its array
 objects. These are first class polytypes in lltypes with the
-follinwg schema:
+following schema:
 
 ```ocaml
 nd := 1 | 2 | 3 | 4 | 5
@@ -144,3 +144,20 @@ def Array_S(name, ty, nd):
 >>> print s.to_llvm()
 %Array_S = type { i8*, [3 x i8], [3 x i8] }
 ```
+
+Tests
+-----
+
+Test suite can be run with either of the following:
+
+```bash
+python -m unittest discover
+```
+
+or:
+
+```python
+from lltypes import test
+test()
+```
+
